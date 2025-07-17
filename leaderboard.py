@@ -419,11 +419,11 @@ class KahootLeaderboardDashboard:
         """Check if it's time to send the bi-weekly alert (Monday 5pm WAT, starting July 21st, 2025)"""
         try:
             # Get current time in WAT (UTC+1)
-            utc_now = datetime.now(timezone.utc)
-            wat_now = utc_now + timedelta(hours=1)  # WAT is UTC+1
+            wat_timezone = timezone(timedelta(hours=1))  # WAT is UTC+1
+            wat_now = datetime.now(wat_timezone)  # Current time in WAT
             
             # Starting date: July 21st, 2025 at 5pm WAT
-            start_date = datetime(2025, 7, 21, 17, 0, 0)  # 5pm WAT
+            start_date = datetime(2025, 7, 21, 17, 0, 0, tzinfo=wat_timezone)  # 5pm WAT
             
             # Check if we're past the start date
             if wat_now < start_date:
