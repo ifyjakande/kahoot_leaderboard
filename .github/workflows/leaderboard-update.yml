@@ -1,0 +1,39 @@
+name: Kahoot Leaderboard Update
+
+on:
+  schedule:
+    # Run every hour to check for updates and alerts
+    - cron: '0 * * * *'  # Every hour at minute 0
+  workflow_dispatch:  # Allow manual triggering
+  
+jobs:
+  update-leaderboard:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Run leaderboard update
+      env:
+        GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+        GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+        GOOGLE_CHAT_WEBHOOK_URL: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
+        GITHUB_ACTIONS: true
+        SCHEDULED_RUN: true
+      run: |
+        python leaderboard.py
+        
+    - name: Log completion
+      run: |
+        echo "Leaderboard update completed at $(date)"
