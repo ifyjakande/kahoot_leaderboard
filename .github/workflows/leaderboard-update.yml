@@ -36,4 +36,4 @@ jobs:
         
     - name: Log completion
       run: |
-        echo "Leaderboard update completed at $(date)"
+        echo "Leaderboard update completed at $(TZ='Africa/Lagos' date)"
