@@ -499,14 +499,16 @@ class KahootLeaderboardDashboard:
             logger.error(f"Error sending Google Chat alert: {e}")
     
     def run_scheduled_tasks(self):
-        """Run dashboard update and check for scheduled alerts"""
+        """Run dashboard update and check for scheduled alerts on bi-weekly schedule"""
         try:
-            # Always refresh the dashboard
-            self.refresh_dashboard()
-            
-            # Check if we should send alert
+            # Check if it's time for bi-weekly update (same schedule as alerts)
             if self.should_send_alert():
-                logger.info("Sending bi-weekly Google Chat alert...")
+                logger.info("Bi-weekly schedule - updating dashboard and sending alert...")
+                
+                # Refresh the dashboard
+                self.refresh_dashboard()
+                
+                # Send the alert
                 df = self.read_data()
                 if not df.empty:
                     leaderboard = self.calculate_leaderboard(df)
@@ -514,7 +516,7 @@ class KahootLeaderboardDashboard:
                 else:
                     logger.warning("No data available for alert")
             else:
-                logger.info("Not time for bi-weekly alert")
+                logger.info("Not time for bi-weekly update - skipping dashboard refresh and alert")
                 
         except Exception as e:
             logger.error(f"Error in scheduled tasks: {e}")

@@ -2,8 +2,8 @@ name: Kahoot Leaderboard Update
 
 on:
   schedule:
-    # Run every hour to check for updates and alerts
-    - cron: '0 * * * *'  # Every hour at minute 0
+    # Run every Monday at 4pm UTC (5pm WAT) - code will check if it's the bi-weekly schedule
+    - cron: '0 16 * * MON'  # Every Monday at 4pm UTC (5pm WAT)
   workflow_dispatch:  # Allow manual triggering
   
 jobs:
