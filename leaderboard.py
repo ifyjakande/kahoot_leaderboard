@@ -204,7 +204,7 @@ class KahootLeaderboardDashboard:
                 last_updated = f"Last Updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
             
             # Title
-            self.viz_sheet.update('A1', [['KAHOOT GAMES LEADERBOARD']])
+            self.viz_sheet.update(values=[['KAHOOT GAMES LEADERBOARD']], range_name='A1')
             self.format_cell(self.viz_sheet, 'A1:H1', self.colors['header_bg'], 
                            self.colors['header_text'], bold=True, font_size=16, 
                            horizontal_alignment='CENTER')
@@ -213,14 +213,14 @@ class KahootLeaderboardDashboard:
             self.viz_sheet.merge_cells('A1:H1')
             
             # Last updated
-            self.viz_sheet.update('A2', [[last_updated]])
+            self.viz_sheet.update(values=[[last_updated]], range_name='A2')
             self.format_cell(self.viz_sheet, 'A2:H2', self.colors['alternating_bg'], 
                            self.colors['text_dark'], font_size=10, horizontal_alignment='CENTER')
             self.viz_sheet.merge_cells('A2:H2')
             
             # Headers
             headers = ['RANK', 'PLAYER', 'TOTAL SCORE', 'TOP 3 FINISHES', 'BEST SCORE', 'AVG SCORE', 'WIN RATE', 'BADGES']
-            self.viz_sheet.update('A4:H4', [headers])
+            self.viz_sheet.update(values=[headers], range_name='A4:H4')
             self.format_cell(self.viz_sheet, 'A4:H4', self.colors['header_bg'], 
                            self.colors['header_text'], bold=True, font_size=12, 
                            horizontal_alignment='CENTER')
@@ -264,7 +264,7 @@ class KahootLeaderboardDashboard:
             
             # Update data
             if data_rows:
-                self.viz_sheet.update(f'A5:H{4 + len(data_rows)}', data_rows)
+                self.viz_sheet.update(values=data_rows, range_name=f'A5:H{4 + len(data_rows)}')
                 
                 # Format data rows
                 for i, row in enumerate(data_rows):
@@ -288,7 +288,7 @@ class KahootLeaderboardDashboard:
             
             # Summary statistics
             summary_row = 4 + len(data_rows) + 2
-            self.viz_sheet.update(f'A{summary_row}', [['SUMMARY STATISTICS']])
+            self.viz_sheet.update(values=[['SUMMARY STATISTICS']], range_name=f'A{summary_row}')
             self.format_cell(self.viz_sheet, f'A{summary_row}:H{summary_row}', 
                            self.colors['summary_bg'], self.colors['header_text'], 
                            bold=True, font_size=14, horizontal_alignment='CENTER')
@@ -315,7 +315,7 @@ class KahootLeaderboardDashboard:
             ]
             
             summary_start = summary_row + 1
-            self.viz_sheet.update(f'A{summary_start}:B{summary_start + len(summary_data) - 1}', summary_data)
+            self.viz_sheet.update(values=summary_data, range_name=f'A{summary_start}:B{summary_start + len(summary_data) - 1}')
             
             # Format summary
             for i in range(len(summary_data)):
