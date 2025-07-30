@@ -542,7 +542,12 @@ class KahootLeaderboardDashboard:
                     f"   • Win rate: {win_rate:.1f}%\n\n"
                 )
             
-            message["text"] += f"📈 *Total Games Played:* {len(self.read_data())}\n"
+            # Calculate actual number of games (date columns)
+            df = self.read_data()
+            date_columns = [col for col in df.columns if col != 'Name'] if not df.empty else []
+            total_games = len(date_columns)
+            
+            message["text"] += f"📈 *Total Games Conducted:* {total_games}\n"
             message["text"] += f"🎯 *Keep up the great work, team!*"
             
             # Send to Google Chat
