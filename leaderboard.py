@@ -337,7 +337,7 @@ class KahootLeaderboardDashboard:
             
             summary_data = [
                 ['Total Players:', total_players],
-                ['Total Games Conducted:', total_games],
+                ['Total Games Played:', total_games],
                 ['Current Leader:', current_leader],
                 ['Highest Score Ever:', f"{int(highest_score):,}"],
                 ['Average Score (All Players):', f"{avg_score_all:,.1f}"],
@@ -448,16 +448,12 @@ class KahootLeaderboardDashboard:
                 # Get the last date column (assuming they're in chronological order)
                 last_date_str = date_columns[-1]
                 try:
-                    # Parse the date and format it in WAT timezone with 12-hour format
-                    from datetime import datetime, timezone, timedelta
+                    # Parse the date and format it (date only, no time)
+                    from datetime import datetime
                     last_date = datetime.strptime(last_date_str, '%d-%b-%Y')
                     
-                    # Set time to end of day in WAT (UTC+1)
-                    wat_timezone = timezone(timedelta(hours=1))
-                    last_date_wat = last_date.replace(hour=23, minute=59, second=59, tzinfo=wat_timezone)
-                    
-                    # Format in 12-hour format with WAT
-                    last_data_date = last_date_wat.strftime('%d-%b-%Y %I:%M:%S %p WAT')
+                    # Format as date only
+                    last_data_date = last_date.strftime('%d-%b-%Y')
                 except ValueError:
                     # Fallback to just the date string if parsing fails
                     last_data_date = last_date_str
@@ -566,7 +562,7 @@ class KahootLeaderboardDashboard:
             date_columns = [col for col in df.columns if col != 'Name'] if not df.empty else []
             total_games = len(date_columns)
             
-            message["text"] += f"📈 *Total Games Conducted:* {total_games}\n"
+            message["text"] += f"📈 *Total Games Played:* {total_games}\n"
             message["text"] += f"🎯 *Keep up the great work, team!*"
             
             # Send to Google Chat
