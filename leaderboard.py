@@ -355,14 +355,14 @@ class KahootLeaderboardDashboard:
             try:
                 requests = []
                 column_widths = [
-                    (0, 160),  # RANK (widened to accommodate summary labels)
-                    (1, 200),  # PLAYER
-                    (2, 120),  # TOTAL SCORE
-                    (3, 130),  # GAMES PLAYED
-                    (4, 120),  # BEST SCORE
-                    (5, 110),  # AVG SCORE
-                    (6, 100),  # WIN RATE
-                    (7, 120)   # BADGES
+                    (0, 180),  # RANK (wider for summary labels and 3-digit ranks)
+                    (1, 250),  # PLAYER (wider for longer names)
+                    (2, 140),  # TOTAL SCORE (wider for large numbers with commas)
+                    (3, 140),  # GAMES PLAYED (consistent with scores)
+                    (4, 140),  # BEST SCORE (wider for large numbers with commas)
+                    (5, 120),  # AVG SCORE (sufficient for decimal numbers)
+                    (6, 110),  # WIN RATE (sufficient for percentages)
+                    (7, 140)   # BADGES (wider for multiple emoji badges)
                 ]
                 
                 for col_index, width in column_widths:
@@ -381,7 +381,41 @@ class KahootLeaderboardDashboard:
                         }
                     })
                 
-                # Execute all column width updates at once
+                # Add row height adjustments for better display
+                # Set header row height
+                requests.append({
+                    'updateDimensionProperties': {
+                        'range': {
+                            'sheetId': self.viz_sheet.id,
+                            'dimension': 'ROWS',
+                            'startIndex': 3,  # Row 4 (headers)
+                            'endIndex': 4
+                        },
+                        'properties': {
+                            'pixelSize': 35  # Taller header row
+                        },
+                        'fields': 'pixelSize'
+                    }
+                })
+                
+                # Set data rows height (if there are data rows)
+                if data_rows:
+                    requests.append({
+                        'updateDimensionProperties': {
+                            'range': {
+                                'sheetId': self.viz_sheet.id,
+                                'dimension': 'ROWS',
+                                'startIndex': 4,  # Row 5 onwards (data rows)
+                                'endIndex': 4 + len(data_rows)
+                            },
+                            'properties': {
+                                'pixelSize': 28  # Optimal height for data rows
+                            },
+                            'fields': 'pixelSize'
+                        }
+                    })
+                
+                # Execute all dimension updates at once
                 self.workbook.batch_update({'requests': requests})
                 
             except Exception as e:
