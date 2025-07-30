@@ -221,7 +221,10 @@ class KahootLeaderboardDashboard:
             if last_data_date:
                 last_updated = f"Last Game: {last_data_date}"
             else:
-                last_updated = f"Last Updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                # Fallback to current time in WAT with 12-hour format
+                wat_timezone = timezone(timedelta(hours=1))
+                current_time_wat = datetime.now(wat_timezone)
+                last_updated = f"Last Updated: {current_time_wat.strftime('%d-%b-%Y %I:%M:%S %p WAT')}"
             
             # Title
             self.viz_sheet.update(values=[['KAHOOT GAMES LEADERBOARD']], range_name='A1')
@@ -438,10 +441,26 @@ class KahootLeaderboardDashboard:
                 logger.warning("No data available for dashboard")
                 return
             
-            # Get the most recent game date
+            # Get the most recent game date from column headers
             last_data_date = None
-            if 'DATE' in df.columns and not df['DATE'].isna().all():
-                last_data_date = df['DATE'].max().strftime('%d-%b-%Y')
+            date_columns = [col for col in df.columns if col != 'Name']
+            if date_columns:
+                # Get the last date column (assuming they're in chronological order)
+                last_date_str = date_columns[-1]
+                try:
+                    # Parse the date and format it in WAT timezone with 12-hour format
+                    from datetime import datetime, timezone, timedelta
+                    last_date = datetime.strptime(last_date_str, '%d-%b-%Y')
+                    
+                    # Set time to end of day in WAT (UTC+1)
+                    wat_timezone = timezone(timedelta(hours=1))
+                    last_date_wat = last_date.replace(hour=23, minute=59, second=59, tzinfo=wat_timezone)
+                    
+                    # Format in 12-hour format with WAT
+                    last_data_date = last_date_wat.strftime('%d-%b-%Y %I:%M:%S %p WAT')
+                except ValueError:
+                    # Fallback to just the date string if parsing fails
+                    last_data_date = last_date_str
             
             # Calculate leaderboard
             leaderboard = self.calculate_leaderboard(df)
