@@ -7,7 +7,6 @@ import os
 import requests
 import json
 from typing import Dict, List
-from collections import defaultdict
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -62,9 +61,9 @@ class KahootLeaderboardDashboard:
             
             # Get or create sheets
             try:
-                self.data_sheet = self.workbook.worksheet('Data')
+                self.data_sheet = self.workbook.worksheet('Team')
             except gspread.WorksheetNotFound:
-                logger.error("'Data' sheet not found")
+                logger.error("'Team' sheet not found")
                 raise
             
             try:
@@ -80,30 +79,33 @@ class KahootLeaderboardDashboard:
             raise
     
     def read_data(self) -> pd.DataFrame:
-        """Read data from the 'data' sheet and return as DataFrame"""
+        """Read data from the 'Team' sheet and return as DataFrame"""
         try:
-            # Get all values from data sheet
+            # Get all values from team sheet
             values = self.data_sheet.get_all_values()
             
             if not values:
                 logger.warning("No data found in sheet")
                 return pd.DataFrame()
             
-            # Convert to DataFrame with proper column names
-            # The actual structure is: DATE, 1ST PLACE, SCORE, 2ND PLACE, SCORE, 3RD PLACE, SCORE
-            column_names = ['DATE', '1ST_PLACE', 'SCORE_1ST', '2ND_PLACE', 'SCORE_2ND', '3RD_PLACE', 'SCORE_3RD']
+            # Convert to DataFrame - Team sheet structure: Name, Date1, Date2, Date3, ...
+            df = pd.DataFrame(values[1:], columns=values[0])  # Use first row as headers
             
-            df = pd.DataFrame(values[1:], columns=column_names)  # Skip header row
+            if 'Name' not in df.columns:
+                logger.error("'Name' column not found in Team sheet")
+                return pd.DataFrame()
             
-            # Clean and convert data types
-            df['DATE'] = pd.to_datetime(df['DATE'], format='%d-%b-%Y', errors='coerce')
+            # Get date columns (all columns except 'Name')
+            date_columns = [col for col in df.columns if col != 'Name']
             
-            # Convert score columns to numeric, handling empty strings
-            score_columns = ['SCORE_1ST', 'SCORE_2ND', 'SCORE_3RD']
-            for col in score_columns:
+            # Convert score columns to numeric, handling empty strings and zeros
+            for col in date_columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
             
-            logger.info(f"Read {len(df)} rows of data")
+            # Remove rows where Name is empty
+            df = df[df['Name'].str.strip() != '']
+            
+            logger.info(f"Read {len(df)} players with {len(date_columns)} game dates")
             return df
             
         except Exception as e:
@@ -111,58 +113,76 @@ class KahootLeaderboardDashboard:
             return pd.DataFrame()
     
     def calculate_leaderboard(self, df: pd.DataFrame) -> List[Dict]:
-        """Calculate leaderboard from the data"""
+        """Calculate leaderboard from the Team sheet data"""
         try:
-            leaderboard = []
+            if df.empty:
+                return []
             
-            # Process each row to extract player scores
-            for _, row in df.iterrows():
-                date = row['DATE']
-                
-                # Extract players and scores for each position
-                positions = [
-                    ('1ST_PLACE', 'SCORE_1ST', '1ST PLACE'),
-                    ('2ND_PLACE', 'SCORE_2ND', '2ND PLACE'),
-                    ('3RD_PLACE', 'SCORE_3RD', '3RD PLACE')
-                ]
-                
-                for pos_name, score_col, display_pos in positions:
-                    if pos_name in row and score_col in row:
-                        player = str(row[pos_name]).strip()
-                        score = row[score_col]
-                        
-                        if player and player != '' and score > 0:
-                            leaderboard.append({
-                                'player': player,
-                                'score': score,
-                                'date': date,
-                                'position': display_pos
-                            })
+            # Get date columns (all columns except 'Name')
+            date_columns = [col for col in df.columns if col != 'Name']
             
-            # Group by player and calculate stats
-            player_stats = defaultdict(lambda: {'total_score': 0, 'games_played': 0, 'best_score': 0, 'positions': []})
+            if not date_columns:
+                logger.warning("No date columns found in data")
+                return []
             
-            for entry in leaderboard:
-                player = entry['player']
-                score = entry['score']
-                
-                player_stats[player]['total_score'] += score
-                player_stats[player]['games_played'] += 1
-                player_stats[player]['best_score'] = max(player_stats[player]['best_score'], score)
-                player_stats[player]['positions'].append(entry['position'])
-            
-            # Create final leaderboard
             final_leaderboard = []
-            for player, stats in player_stats.items():
-                avg_score = stats['total_score'] / stats['games_played']
-                final_leaderboard.append({
-                    'player': player,
-                    'total_score': stats['total_score'],
-                    'games_played': stats['games_played'],
-                    'best_score': stats['best_score'],
-                    'avg_score': avg_score,
-                    'positions': stats['positions']
-                })
+            
+            # Process each player
+            for _, row in df.iterrows():
+                player_name = str(row['Name']).strip()
+                
+                if not player_name:
+                    continue
+                
+                # Calculate player statistics
+                player_scores = []
+                total_score = 0
+                games_played = 0
+                best_score = 0
+                first_place_count = 0
+                
+                # Get scores for each game date
+                for date_col in date_columns:
+                    score = row[date_col]
+                    if score > 0:  # Only count non-zero scores as games played
+                        player_scores.append((date_col, score))
+                        total_score += score
+                        games_played += 1
+                        best_score = max(best_score, score)
+                
+                # Calculate positions for each game (determine how many times they came 1st)
+                for date_col in date_columns:
+                    player_score = row[date_col]
+                    if player_score > 0:
+                        # Get all players' scores for this date to determine position
+                        date_scores = df[df[date_col] > 0][date_col].tolist()
+                        date_scores.sort(reverse=True)
+                        
+                        # Check if this player got 1st place in this game
+                        if date_scores and player_score == date_scores[0]:
+                            # Handle ties - only count as 1st if they're the only one with the highest score
+                            if date_scores.count(player_score) == 1:
+                                first_place_count += 1
+                
+                # Only include players who have played at least one game
+                if games_played > 0:
+                    avg_score = total_score / games_played
+                    win_rate = (first_place_count / games_played) * 100
+                    
+                    # Create positions list for compatibility (simplified)
+                    positions = ['1ST PLACE'] * first_place_count + ['PARTICIPATED'] * (games_played - first_place_count)
+                    
+                    final_leaderboard.append({
+                        'player': player_name,
+                        'total_score': total_score,
+                        'games_played': games_played,
+                        'best_score': best_score,
+                        'avg_score': avg_score,
+                        'win_rate': win_rate,
+                        'first_place_count': first_place_count,
+                        'positions': positions,
+                        'player_scores': player_scores
+                    })
             
             # Sort by total score (descending)
             final_leaderboard.sort(key=lambda x: x['total_score'], reverse=True)
@@ -219,7 +239,7 @@ class KahootLeaderboardDashboard:
             self.viz_sheet.merge_cells('A2:H2')
             
             # Headers
-            headers = ['RANK', 'PLAYER', 'TOTAL SCORE', 'TOP 3 FINISHES', 'BEST SCORE', 'AVG SCORE', 'WIN RATE', 'BADGES']
+            headers = ['RANK', 'PLAYER', 'TOTAL SCORE', 'GAMES PLAYED', 'BEST SCORE', 'AVG SCORE', 'WIN RATE', 'BADGES']
             self.viz_sheet.update(values=[headers], range_name='A4:H4')
             self.format_cell(self.viz_sheet, 'A4:H4', self.colors['header_bg'], 
                            self.colors['header_text'], bold=True, font_size=12, 
@@ -227,12 +247,12 @@ class KahootLeaderboardDashboard:
             
             # Data rows
             data_rows = []
-            for i, player_data in enumerate(leaderboard[:10]):  # Top 10 players
+            for i, player_data in enumerate(leaderboard):  # All players
                 rank = i + 1
                 
-                # Calculate win rate (1st place finishes / total top 3 finishes)
-                first_place_count = player_data['positions'].count('1ST PLACE')
-                win_rate = (first_place_count / player_data['games_played']) * 100
+                # Get win rate from calculated data
+                first_place_count = player_data.get('first_place_count', 0)
+                win_rate = player_data.get('win_rate', 0)
                 
                 # Badges based on performance (clean emoji format)
                 badges = []
@@ -296,22 +316,29 @@ class KahootLeaderboardDashboard:
             
             # Summary data
             total_players = len(leaderboard)
-            total_games = len(df) if not df.empty else 0
+            
+            # Calculate total unique games from date columns
+            date_columns = [col for col in df.columns if col != 'Name'] if not df.empty else []
+            total_games = len(date_columns)
+            
             if leaderboard:
                 highest_score = max(player['best_score'] for player in leaderboard)
                 avg_score_all = sum(player['avg_score'] for player in leaderboard) / len(leaderboard)
                 current_leader = leaderboard[0]['player']
+                total_participations = sum(player['games_played'] for player in leaderboard)
             else:
                 highest_score = 0
                 avg_score_all = 0
                 current_leader = "No data"
+                total_participations = 0
             
             summary_data = [
-                ['Top 3 Finishers:', total_players],
-                ['Total Games Played:', total_games],
+                ['Total Players:', total_players],
+                ['Total Games Conducted:', total_games],
                 ['Current Leader:', current_leader],
                 ['Highest Score Ever:', f"{int(highest_score):,}"],
-                ['Average Score (Top 3):', f"{avg_score_all:,.1f}"]
+                ['Average Score (All Players):', f"{avg_score_all:,.1f}"],
+                ['Total Participations:', total_participations]
             ]
             
             summary_start = summary_row + 1
@@ -331,7 +358,7 @@ class KahootLeaderboardDashboard:
                     (0, 160),  # RANK (widened to accommodate summary labels)
                     (1, 200),  # PLAYER
                     (2, 120),  # TOTAL SCORE
-                    (3, 130),  # TOP 3 FINISHES
+                    (3, 130),  # GAMES PLAYED
                     (4, 120),  # BEST SCORE
                     (5, 110),  # AVG SCORE
                     (6, 100),  # WIN RATE
@@ -473,11 +500,12 @@ class KahootLeaderboardDashboard:
             badges = ['🥇', '🥈', '🥉']
             for i, player in enumerate(top_3):
                 badge = badges[i]
+                win_rate = player.get('win_rate', 0)
                 message["text"] += (
                     f"{badge} *{player['player']}* - {player['total_score']:,} points\n"
-                    f"   • {player['games_played']} top 3 finishes\n"
+                    f"   • {player['games_played']} games played\n"
                     f"   • Best score: {player['best_score']:,}\n"
-                    f"   • Win rate: {(player['positions'].count('1ST PLACE') / player['games_played']) * 100:.1f}%\n\n"
+                    f"   • Win rate: {win_rate:.1f}%\n\n"
                 )
             
             message["text"] += f"📈 *Total Games Played:* {len(self.read_data())}\n"
@@ -493,7 +521,7 @@ class KahootLeaderboardDashboard:
             if response.status_code == 200:
                 logger.info("Google Chat alert sent successfully")
             else:
-                logger.error(f"Failed to send Google Chat alert: {response.status_code} - {response.text}")
+                logger.error(f"Failed to send Google Chat alert: HTTP {response.status_code}")
                 
         except Exception as e:
             logger.error(f"Error sending Google Chat alert: {e}")
@@ -501,8 +529,24 @@ class KahootLeaderboardDashboard:
     def run_scheduled_tasks(self):
         """Run dashboard update and check for scheduled alerts on bi-weekly schedule"""
         try:
-            # Check if it's time for bi-weekly update (same schedule as alerts)
-            if self.should_send_alert():
+            # Check for manual trigger override
+            is_manual_trigger = os.getenv('MANUAL_TRIGGER', '').lower() == 'true'
+            
+            if is_manual_trigger:
+                logger.info("Manual trigger detected - running dashboard update and alert for testing...")
+                
+                # Always run for manual triggers (testing mode)
+                self.refresh_dashboard()
+                
+                # Send the alert
+                df = self.read_data()
+                if not df.empty:
+                    leaderboard = self.calculate_leaderboard(df)
+                    self.send_google_chat_alert(leaderboard)
+                else:
+                    logger.warning("No data available for alert")
+                    
+            elif self.should_send_alert():
                 logger.info("Bi-weekly schedule - updating dashboard and sending alert...")
                 
                 # Refresh the dashboard

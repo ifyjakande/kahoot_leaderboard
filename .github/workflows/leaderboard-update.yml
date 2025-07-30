@@ -31,6 +31,7 @@ jobs:
         GOOGLE_CHAT_WEBHOOK_URL: ${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}
         GITHUB_ACTIONS: true
         SCHEDULED_RUN: true
+        MANUAL_TRIGGER: ${{ github.event_name == 'workflow_dispatch' }}
       run: |
         python leaderboard.py
         
