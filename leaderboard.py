@@ -326,11 +326,14 @@ class KahootLeaderboardDashboard:
             
             if leaderboard:
                 highest_score = max(player['best_score'] for player in leaderboard)
+                # Find the player with the highest score
+                highest_score_player = max(leaderboard, key=lambda x: x['best_score'])['player']
                 avg_score_all = sum(player['avg_score'] for player in leaderboard) / len(leaderboard)
                 current_leader = leaderboard[0]['player']
                 total_participations = sum(player['games_played'] for player in leaderboard)
             else:
                 highest_score = 0
+                highest_score_player = "No data"
                 avg_score_all = 0
                 current_leader = "No data"
                 total_participations = 0
@@ -339,7 +342,7 @@ class KahootLeaderboardDashboard:
                 ['Total Players:', total_players],
                 ['Total Games Played:', total_games],
                 ['Current Leader:', current_leader],
-                ['Highest Score Ever:', f"{int(highest_score):,}"],
+                ['Highest Score Ever:', f"{int(highest_score):,} ({highest_score_player})"],
                 ['Average Score (All Players):', f"{avg_score_all:,.1f}"],
                 ['Total Participations:', total_participations]
             ]
